@@ -78,12 +78,12 @@ public:
 	//CRPI Robot UR5
 	
 	
-	CrpiRobot<CrpiUniversal> arm ("universal_ur5.xml");
+	CrpiRobot<CrpiUniversal> arm("universal_ur5.xml");
 	robotAxes pose_msg;
 	float open_grip;
 
 
-	int start() {
+	int start(string input_IP_ADDR, string input_PORT) {
 		cout << "Starting Connection." << endl;
 		//Start the CRPI Comms
 		start_CRPI_encoding();
@@ -102,7 +102,9 @@ public:
 		hints.ai_protocol = IPPROTO_TCP;
 
 		// Resolve the server address and port
-		iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
+		//iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
+		iResult = getaddrinfo((PCSTR)input_IP_ADDR.c_str, (PCSTR)input_PORT.c_str, &hints, &result);
+
 		if (iResult != 0) {
 			printf("getaddrinfo failed with error: %d\n", iResult);
 			WSACleanup();
@@ -359,7 +361,8 @@ public:
 
 	void act_changer_unity(){
 		
-
+		close_client(); 
+		start(); 
 		 
 	}
 
