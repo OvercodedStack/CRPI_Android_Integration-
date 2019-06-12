@@ -1,3 +1,6 @@
+#ifndef CRPI_ANDROID_H
+#define CRPI_ANDROID_H
+
 #pragma once
 #include "crpi_robot.h"
 #include "crpi_universal.h"
@@ -31,6 +34,7 @@ public:
 	string port_num;
 	const char *sendbuf;
 	string list_IPs[128]; //Amount of stored robots in IP scanning
+	float digital_data_in[8]; //Adjust as needed
 
 
 	//CRPI Settings
@@ -40,3 +44,6 @@ public:
 
 
 };
+
+
+#endif

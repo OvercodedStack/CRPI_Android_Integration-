@@ -29,7 +29,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v100</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -96,12 +96,12 @@
     </BuildLog>
     <Link>
       <OutputFile>../../Debug/Manus_Interface.exe</OutputFile>
-      <AdditionalDependencies>Library_CRPI.lib;Winmm.lib;ulapilib.lib;Serial.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Library_CRPI.lib;Winmm.lib;ulapilib.lib;Serial.lib</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>..\..\Debug\Manus_Interface.pdb</ProgramDatabaseFile>
       <SubSystem>Console</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
-      <AdditionalLibraryDirectories>C:\CRPI\Debug</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\CRPI\Debug; C:\CRPI\Applications\Application_Manus_Interface\ViconDataStreamSDK_CPP.lib;C:\CRPI\Applications\Application_Manus_Interface\ViconDataStreamSDK_CPP.dll</AdditionalLibraryDirectories>
     </Link>
     <Bscmake>
       <OutputFile>../../Debug/Manus_Interface.bsc</OutputFile>

@@ -21,73 +21,36 @@
 //	commands. The program also depends on having information being delivered at a constant rate greater than 1 second
 //	in order to avoid overflowing the recv buffer (too much garbage data can collect). 
 ///////////////////////////////////////////////////////////////////////////////
-
-/*
-DO NOT REBUILD SOLUTION - WILL CAUSE PAIN AND SUFFERING
-
-Right click project and build exclusively. Otherwise you will have to rebuild CRPI.h and it
-
-*/
+ 
 #include <winsock2.h>
-#include <windows.h>
 #include <ws2tcpip.h>
-#include <iphlpapi.h>
-#include <stdio.h>
-#include <conio.h>
-#include <stdlib.h>
 #include <iostream>
 #include <time.h>
 #include "crpi_robot.h"
 #include "crpi_universal.h"
 #include "ulapi.h"
 #include "crpi_abb.h"
-#include <winsock.h>
 #include <string>
 #include "CRPI_Android_interface.h"
+#include "DataStreamClient.h"
+#include <crtdbg.h>
 
-// Need to link with Ws2_32.lib, Mswsock.lib, and Advapi32.lib
+// Need to link with Ws2_32.lib
 #pragma comment (lib, "Ws2_32.lib")
-#pragma comment (lib, "Mswsock.lib")
-#pragma comment (lib, "AdvApi32.lib")
+
 
 #define DEFAULT_BUFLEN 256
 #define DEFAULT_PORT "27000"
  
 using namespace std;
 using namespace crpi_robot;
- 
 
 struct addrinfo *result = NULL,
 	*ptr = NULL,
 	hints;
 
-/*
-
-class Server_CRPI {
-public: 
-	WSADATA wsaData;
-	SOCKET ConnectSocket ;
-	
-    const char *sendbuf;
-	int iResult;
-	int recvbuflen;
-
-	//TCP Message from unity acting as buffer
-	string action_string_TCP;
-	CrpiRobot<CrpiUniversal> *arm;
-
-	
-	robotAxes pose_msg;
-	float open_grip;
-
-
-	*/
-
-
-
 //Dummy constructor 
 Server_CRPI::Server_CRPI() {
-int skip = 0; 
 }
 
 
@@ -98,12 +61,11 @@ int Server_CRPI::start_CRPI_SRV(string input_IP_ADDR, string input_PORT) {
 	recvbuflen = DEFAULT_BUFLEN;
 
 	cout << "Starting Connection." << endl;
+
 	//CRPI Robot UR5
 	CrpiRobot<CrpiUniversal> arm("universal_ur5.xml");
 	//Start the CRPI Comms
 	start_CRPI_encoding();
-
-		
 
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -160,7 +122,6 @@ int Server_CRPI::start_CRPI_SRV(string input_IP_ADDR, string input_PORT) {
 	cout << "Initialization Done. Starting Client reception..." << endl;
 	recieve_message();
 
-
 	// Receive until the peer closes the connection
 	close_client();
 		
@@ -198,6 +159,15 @@ void Server_CRPI::send_crpi_msg(robotAxes unity_pose) {
 	{
 		cout << "Failure" << endl;
 	}
+	
+
+	if (digital_data_in[1] == 1) {
+		arm->SetRobotDO(8, true);		
+	}
+	else {
+		arm->SetRobotDO(8, false);
+	}
+
 
 
 	//Avoid using gripper at the moment - Requires most likely some type of threading in order to use appropiately.
@@ -225,13 +195,17 @@ void Server_CRPI::send_crpi_msg(robotAxes unity_pose) {
 robotAxes Server_CRPI::string_converter(string msg) {
 	//  UR5_pos:-42.58, -43.69, -99.57, 233.2, -89.66, -47.09;Gripper:0; 
 	// array_of_pos[6] = {x,y,z,xrot,yrot,zrot};
+	// Digital_data_in = {gripper, DO_1, DO_2, etc };
+
 
 	// {rot0,rot1,rot2,rot3,rot4,rot5}
 	double array_of_pos[6], gripper;
 	robotAxes unity_pose = robotAxes(6);
+	bool action_cmd = false; 
 	string temp_msg;
 	int ary_count = 0;
-	bool chk_grip = false;
+	bool chk_DO = false;
+
 
 	if (msg.length() > 1) {
 
@@ -258,6 +232,27 @@ robotAxes Server_CRPI::string_converter(string msg) {
 					i++;
 				}
 			}
+
+			ary_count = 0; 
+			if (msg[i] == ',') {
+				i++;
+				while (true) {
+					if (msg[i] == ';') {
+						open_grip = strtod((temp_msg).c_str(), 0);
+						chk_DO = true;
+						temp_msg = "";
+						break;
+					}
+					else {
+						temp_msg += msg[i];
+						digital_data_in[ary_count] = atoi(temp_msg.c_str());
+						ary_count++; 
+					}
+					i++;
+				}
+			}
+
+			/*
 			if (msg[i] == ':') {
 				i++;
 				while (true) {
@@ -273,10 +268,10 @@ robotAxes Server_CRPI::string_converter(string msg) {
 					i++;
 				}
 			}
-
+			*/
 
 			//If the array is already full, break; 
-			if (ary_count >= 6 && chk_grip) {
+			if (chk_DO) {
 				break;
 			}
 		}
@@ -291,7 +286,6 @@ robotAxes Server_CRPI::string_converter(string msg) {
 	else {
 		cout << "Message is null." << endl;
 	}
-
 
 	//Assign phrase final pose position. 
 	////unity_pose.x	= array_of_pos[0];
@@ -405,53 +399,6 @@ void Server_CRPI::act_changer_unity(int changer){
 	start_CRPI_SRV(adr_IP, port_num);
 }
 
-
-void Server_CRPI::port_scanner(string IP_name_in, int start_port, int end_port) {
-	string IP[20];
-	int start = start_port; 
-	int end = end_port; 
-	int err; 
-	int nret;
-	SOCKET sock;
-	SOCKADDR_IN Info;
-	WSADATA wsadata;
-	int counter = 0; 
-	err = WSAStartup(MAKEWORD(2, 2), &wsadata);
-	if (err != 0)
-	{
-		cout << "Error with winsock. Will Now Exit." << endl;
-		cin.get();
-		return;
-	}
-
-	while (start < end)
-	{
-		sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-		Info.sin_family = AF_INET;
-		Info.sin_port = htons(start);
-		nret = connect(sock, NULL, NULL);
-		// error is for line above
-		if (nret != SOCKET_ERROR)
-		{
-			cout << "Port " << start << " - OPEN! " << endl;
-			list_IPs[counter] = start;
-			counter++;
-		}
-		start++;
-		closesocket(sock);
-	}
-	cout << endl << "Finished With Scan..." << endl;
-	cin.get();
-}
-
-	/*
-	string adr_IP;
-	string port_num; 
-};
-*/
-
-
 int __cdecl main(int argc, char **argv) {
 	Server_CRPI server; 
 	server.start_CRPI_SRV("127.0.0.1","27000");
@@ -459,3 +406,54 @@ int __cdecl main(int argc, char **argv) {
 	return 0;
 	
 }
+
+
+
+
+/*Deprecated
+void connect_vicon() {
+ViconDataStreamSDK::CPP::Client MyClient;
+Output_Connect Output = MyClient.Connect("localhost");
+}
+
+
+//Abandoned.
+void Server_CRPI::port_scanner(string IP_name_in, int start_port, int end_port) {
+string IP[20];
+int start = start_port;
+int end = end_port;
+int err;
+int nret;
+SOCKET sock;
+SOCKADDR_IN Info;
+WSADATA wsadata;
+int counter = 0;
+err = WSAStartup(MAKEWORD(2, 2), &wsadata);
+if (err != 0)
+{
+cout << "Error with winsock. Will Now Exit." << endl;
+cin.get();
+return;
+}
+
+while (start < end)
+{
+sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+Info.sin_family = AF_INET;
+Info.sin_port = htons(start);
+nret = connect(sock, NULL, NULL);
+// error is for line above
+if (nret != SOCKET_ERROR)
+{
+cout << "Port " << start << " - OPEN! " << endl;
+list_IPs[counter] = start;
+counter++;
+}
+start++;
+closesocket(sock);
+}
+cout << endl << "Finished With Scan..." << endl;
+cin.get();
+}
+*/
