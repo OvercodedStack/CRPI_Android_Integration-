@@ -1,0 +1,9 @@
+﻿  Skipping... (no relevant changes detected)
+  Source.cpp
+C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V140\Microsoft.CppBuild.targets(1189,5): warning MSB8012: TargetPath(C:\CRPI\Applications\Application_Manus_Interface\..\..\Debug\Application_Manus_Interface.exe) does not match the Linker's OutputFile property value (C:\CRPI\Debug\Manus_Interface.exe). This may cause your project to build incorrectly. To correct this, please make sure that $(OutDir), $(TargetName) and $(TargetExt) property values match the value specified in %(Link.OutputFile).
+C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V140\Microsoft.CppBuild.targets(1191,5): warning MSB8012: TargetName(Application_Manus_Interface) does not match the Linker's OutputFile property value (Manus_Interface). This may cause your project to build incorrectly. To correct this, please make sure that $(OutDir), $(TargetName) and $(TargetExt) property values match the value specified in %(Link.OutputFile).
+Source.obj : warning LNK4075: ignoring '/EDITANDCONTINUE' due to '/OPT:LBR' specification
+     Creating library ..\..\Debug\Application_Manus_Interface.lib and object ..\..\Debug\Application_Manus_Interface.exp
+Source.obj : warning LNK4204: 'C:\CRPI\Debug\Manus_Interface.pdb' is missing debugging information for referencing module; linking object as if no debug info
+  Application_Manus_Interface.vcxproj -> C:\CRPI\Applications\Application_Manus_Interface\..\..\Debug\Application_Manus_Interface.exe
+  Application_Manus_Interface.vcxproj -> ..\..\Debug\Manus_Interface.pdb (Full PDB)

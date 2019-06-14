@@ -30,6 +30,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v140</PlatformToolset>
+    <UseOfMfc>Static</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -71,10 +72,10 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>..\..\Debug\</OutDir>
-    <IntDir>..\..\Debug\Manus_Interface\</IntDir>
-    <TargetName>Manus_Interface</TargetName>
     <LinkIncremental>false</LinkIncremental>
     <GenerateManifest>false</GenerateManifest>
+    <IntDir>..\..\Debug\Manus_Interface</IntDir>
+    <TargetName>Manus_Interface</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -91,9 +92,7 @@
       <ProgramDataBaseFileName>..\..\Debug\Manus_Interface.pdb</ProgramDataBaseFileName>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
-    <BuildLog>
-      <Path>..\..\Debug\Manus_Interface_BuildLog.htm</Path>
-    </BuildLog>
+    <BuildLog />
     <Link>
       <OutputFile>../../Debug/Manus_Interface.exe</OutputFile>
       <AdditionalDependencies>Library_CRPI.lib;Winmm.lib;ulapilib.lib;Serial.lib</AdditionalDependencies>
