@@ -309,7 +309,7 @@ void Server_CRPI::recieve_message() {
 		cout << "Recieved message: " << action_string_TCP << endl;
 	 
 		//Send a CRPI Message given the correct string
-		if (SHUTOFF_CRPI == 1) {
+		if (SHUTOFF_CRPI == 0) {
 			pose_msg = string_converter(action_string_TCP); //Interpret a robot_pose 
 			if (old_robot_id != robot_id) { //Changer for robot IDs in Unity
 				act_changer_unity(robot_id);
@@ -348,6 +348,8 @@ void Server_CRPI::send_gripper_cmd(float vals) {
 
 }
 
+
+//Export a digital output value out to the robot
 void Server_CRPI::send_DO_cmds(bool ary_in[4]) {
 	arm->SetRobotDO(8, ary_in[0]);
 	arm->SetRobotDO(9, ary_in[1]);
