@@ -182,8 +182,14 @@ robotAxes Server_CRPI::string_converter(string msg) {
 	// Digital_data_in = {Robot_ID, gripper, DO_1, DO_2, etc };
 
 
+
+
+	//UR5_pos:100.9601,-80.56218,81.42348,89.13869,89.99997,-126.8599;Robot Utilities:0,0,0,0,0,0;
+
 	// {rot0,rot1,rot2,rot3,rot4,rot5}
-	double array_of_pos[6], gripper, robot_util_array[6];
+	float array_of_pos[6];
+	float gripper;
+	float robot_util_array[6];
 	robotAxes unity_pose = robotAxes(6);
 	bool action_cmd = false; 
 	string temp_msg;
@@ -195,17 +201,22 @@ robotAxes Server_CRPI::string_converter(string msg) {
 
 		//Categorized phraser for the string input by unity.
 		for (int i = 0; i < msg.length(); i++) {
-			if (msg[i] == '>') {
+			if (msg[i] == ':') {
 				i++;
-				cout << endl;
+				//cout << endl;
 				while (true) {
 					if (msg[i] == ',') {
-						array_of_pos[ary_count] = strtod((temp_msg).c_str(), 0);
+						temp_msg.erase(0);
+						cout << temp_msg << endl;
+						cout << "I did dod this" << endl;
+						array_of_pos[ary_count] = strtof((temp_msg).c_str(), 0);
 						ary_count++;
 						temp_msg = "";
 					}
 					else if (msg[i] == ';') {
-						array_of_pos[ary_count] = strtod((temp_msg).c_str(), 0);
+						temp_msg.erase(0);
+						cout << temp_msg << endl;
+						array_of_pos[ary_count] = strtof((temp_msg).c_str(), 0);
 						temp_msg = "";
 						ary_count++;
 						break;
@@ -216,29 +227,27 @@ robotAxes Server_CRPI::string_converter(string msg) {
 					i++;
 				}
 			}
-
+		
 			ary_count = 0; 
-			if (msg[i] == ':') {
-				i++;
-				while (true) {
-					if (msg[i] == ',') {
-						robot_util_array[ary_count] = strtod((temp_msg).c_str(), 0);
-						ary_count++;
-						temp_msg = "";
-					}
-					if (msg[i] == ';') {
-						robot_util_array[ary_count] = strtod((temp_msg).c_str(), 0);
-						chk_DO = true;
-						temp_msg = "";
-						break;
-					}
-					else {
-						temp_msg += msg[i];
- 					}
-					i++;
+			while (true) {
+				if (msg[i] == ',') {
+					robot_util_array[ary_count] = strtof((temp_msg).c_str(), 0);
+					ary_count++;
+					temp_msg = "";
 				}
+				if (msg[i] == ';') {
+					cout << temp_msg << endl;
+					robot_util_array[ary_count] = strtof((temp_msg).c_str(), 0);
+					cout << "BEEEP" << endl;
+					chk_DO = true;
+					temp_msg = "";
+					break;
+				}
+				else {
+					temp_msg += msg[i];
+				}
+				i++;
 			}
-
 			//If the array is already full, break; 
 			if (chk_DO) {
 				break;
@@ -411,7 +420,7 @@ void Server_CRPI::act_changer_unity(int changer){
 
 int __cdecl main(int argc, char **argv) {
 	Server_CRPI server; 
-	server.start_CRPI_SRV("127.0.0.1","27000");
+	server.start_CRPI_SRV("169.254.152.27","27000");
 	cout << "Closing client-server." << endl;
 	return 0;
 	
