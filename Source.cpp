@@ -129,7 +129,7 @@ int Server_CRPI::start_CRPI_SRV(string input_IP_ADDR, string input_PORT) {
 
 	cout << "Initialization Done. Starting Client reception..." << endl;
 	recieve_message();
-
+	
 	// Receive until the peer closes the connection
 	close_client();
 		
@@ -154,6 +154,9 @@ void Server_CRPI::start_CRPI_encoding() {
 void Server_CRPI::send_crpi_msg(robotAxes unity_pose) {
 	robotAxes address;
 	arm->GetRobotAxes(&address);
+	address.print();
+	cout << endl;
+	unity_pose.print();
 
 	//Avoid sleep statements here - Will Unbalance TPC client and fill with garbage. 
 	//Read data_in. Conditional to test pose accuracy/send msg. 
@@ -181,7 +184,7 @@ robotAxes Server_CRPI::string_converter(string msg) {
 	// array_of_pos[6] = {x,y,z,xrot,yrot,zrot};
 	// Digital_data_in = {Robot_ID, gripper, DO_1, DO_2, etc };
 
-
+	int DEBUG_LOG = 0; 
 
 
 	//UR5_pos:100.9601,-80.56218,81.42348,89.13869,89.99997,-126.8599;Robot Utilities:0,0,0,0,0,0;
@@ -190,15 +193,13 @@ robotAxes Server_CRPI::string_converter(string msg) {
 	float array_of_pos[6];
 	float gripper;
 	float robot_util_array[6];
-	robotAxes unity_pose = robotAxes(6);
+	robotAxes unity_pose;
 	bool action_cmd = false; 
 	string temp_msg;
 	int ary_count = 0;
 	bool chk_DO = false;
-
-
+	int temp_block = 0;
 	if (msg.length() > 1) {
-
 		//Categorized phraser for the string input by unity.
 		for (int i = 0; i < msg.length(); i++) {
 			if (msg[i] == ':') {
@@ -206,16 +207,11 @@ robotAxes Server_CRPI::string_converter(string msg) {
 				//cout << endl;
 				while (true) {
 					if (msg[i] == ',') {
-						temp_msg.erase(0);
-						cout << temp_msg << endl;
-						cout << "I did dod this" << endl;
 						array_of_pos[ary_count] = strtof((temp_msg).c_str(), 0);
 						ary_count++;
 						temp_msg = "";
 					}
 					else if (msg[i] == ';') {
-						temp_msg.erase(0);
-						cout << temp_msg << endl;
 						array_of_pos[ary_count] = strtof((temp_msg).c_str(), 0);
 						temp_msg = "";
 						ary_count++;
@@ -226,44 +222,52 @@ robotAxes Server_CRPI::string_converter(string msg) {
 					}
 					i++;
 				}
+				temp_block = i;
+				break;
 			}
-		
-			ary_count = 0; 
-			while (true) {
-				if (msg[i] == ',') {
-					robot_util_array[ary_count] = strtof((temp_msg).c_str(), 0);
-					ary_count++;
-					temp_msg = "";
-				}
-				if (msg[i] == ';') {
-					cout << temp_msg << endl;
-					robot_util_array[ary_count] = strtof((temp_msg).c_str(), 0);
-					cout << "BEEEP" << endl;
-					chk_DO = true;
-					temp_msg = "";
-					break;
-				}
-				else {
-					temp_msg += msg[i];
-				}
+		}
+		ary_count = 0;
+		for (int i = temp_block; i < msg.length(); i++) {
+			if (msg[i] == ':') {
 				i++;
-			}
-			//If the array is already full, break; 
-			if (chk_DO) {
+				//cout << endl;
+				while (true) {
+					if (msg[i] == ',') {
+						robot_util_array[ary_count] = strtof((temp_msg).c_str(), 0);
+						ary_count++;
+						temp_msg = "";
+					}
+					if (msg[i] == ';') {
+						robot_util_array[ary_count] = strtof((temp_msg).c_str(), 0);
+						temp_msg = "";
+						break;
+					}
+					else {
+						if (msg[i] != ',') {
+							temp_msg += msg[i];
+						}
+					}
+					i++;
+				}
 				break;
 			}
 		}
 
+		
 		//Phrase inbound angles into the robotAxes 
+		
 		for (int i = 0; i < 6; i++) {
-			cout << "Revieved angles: " << endl;
-			cout << array_of_pos[i] << ", " << endl;
+			if (DEBUG_LOG == 1) {
+				cout << "Revieved angles: " << endl;
+				cout << array_of_pos[i] << endl;
+			}
 			unity_pose.axis[i] = array_of_pos[i];
 		}
-
-		for (int i = 0; i < 6; i++) {
-			cout << "Recieved robot utils " << endl;
-			cout << robot_util_array[i] << ", " << endl;
+		if (DEBUG_LOG == 1) {
+			for (int i = 0; i < 6; i++) {
+				cout << "Recieved robot utils " << endl;
+				cout << robot_util_array[i] << endl;
+			}
 		}
 		robot_id = robot_util_array[0];
 		gripper_ratio = robot_util_array[1];
@@ -323,6 +327,7 @@ void Server_CRPI::recieve_message() {
 			if (old_robot_id != robot_id) { //Changer for robot IDs in Unity
 				act_changer_unity(robot_id);
 				start_CRPI_encoding();
+				old_robot_id = robot_id;
 			}
 			if (robot_id != 0) //Precautionary action in case we fail to get any robot ID
 				send_crpi_msg(pose_msg);
@@ -395,27 +400,29 @@ void Server_CRPI::close_client() {
 //Depending on the input provided, the server will switch from 
 //different robot arms using this function
 void Server_CRPI::act_changer_unity(int changer){
- 	close_client(); 
+ 	  
 	if (changer == 1) {
-		CrpiRobot<CrpiUniversal> arm("universal_ur5.xml");
+		printf("starting UR5");
+		arm = new CrpiRobot<CrpiUniversal>("universal_ur5.xml");
+		printf("started UR5");
 	}
 	else if (changer == 2) {
-		CrpiRobot<CrpiUniversal> arm("universal_ur10_left.xml");
+		arm = new CrpiRobot<CrpiUniversal>("universal_ur10_left.xml");
 	}
 	else if (changer == 3) {
-		CrpiRobot<CrpiUniversal> arm("universal_ur10_right.xml");
+		arm = new CrpiRobot<CrpiUniversal>("universal_ur10_right.xml");
 	}
 	else if (changer == 4) {
-		CrpiRobot<CrpiUniversal> arm("abb_irb14000_left.xml");
-	}
+		arm = new CrpiRobot<CrpiUniversal>("abb_irb14000_left.xml");
+ 	}
 	else if (changer == 5) {
-		CrpiRobot<CrpiUniversal> arm("abb_irb14000_right.xml");
+		arm = new CrpiRobot<CrpiUniversal>("abb_irb14000_right.xml");
 	}
 	else {
 		printf("No suitable robot at the moment");
 		return; 
 	}
-	start_CRPI_SRV(adr_IP, port_num);
+	//start_CRPI_SRV(adr_IP, port_num);
 }
 
 int __cdecl main(int argc, char **argv) {
@@ -425,54 +432,3 @@ int __cdecl main(int argc, char **argv) {
 	return 0;
 	
 }
-
-
-
-
-/*Deprecated
-void connect_vicon() {
-ViconDataStreamSDK::CPP::Client MyClient;
-Output_Connect Output = MyClient.Connect("localhost");
-}
-
-
-//Abandoned.
-void Server_CRPI::port_scanner(string IP_name_in, int start_port, int end_port) {
-string IP[20];
-int start = start_port;
-int end = end_port;
-int err;
-int nret;
-SOCKET sock;
-SOCKADDR_IN Info;
-WSADATA wsadata;
-int counter = 0;
-err = WSAStartup(MAKEWORD(2, 2), &wsadata);
-if (err != 0)
-{
-cout << "Error with winsock. Will Now Exit." << endl;
-cin.get();
-return;
-}
-
-while (start < end)
-{
-sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-Info.sin_family = AF_INET;
-Info.sin_port = htons(start);
-nret = connect(sock, NULL, NULL);
-// error is for line above
-if (nret != SOCKET_ERROR)
-{
-cout << "Port " << start << " - OPEN! " << endl;
-list_IPs[counter] = start;
-counter++;
-}
-start++;
-closesocket(sock);
-}
-cout << endl << "Finished With Scan..." << endl;
-cin.get();
-}
-*/
