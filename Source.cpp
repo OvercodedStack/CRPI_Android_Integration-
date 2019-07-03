@@ -36,6 +36,9 @@
 #include "CRPI_Unity_Tunnel.h"
 #include "DataStreamClient.h"
 #include <crtdbg.h>
+#include <thread>
+#include <mutex>
+#include <process.h>
 
 // Need to link with Ws2_32.lib
 #pragma comment (lib, "Ws2_32.lib")
@@ -55,15 +58,19 @@ struct addrinfo *result = NULL,
 
 //Set this bit for debugging with or without CRPI 
 const int SHUTOFF_CRPI = 0; 
-
+mutex shared_mutex;
+string _shared_mem = "";
 
 //Dummy constructor 
 Server_CRPI::Server_CRPI() {
 }
 
-
 //General setup and running of the TCP server connection 
-int Server_CRPI::start_CRPI_SRV(string input_IP_ADDR, string input_PORT) {
+//("169.254.152.27", "27000")
+//int Server_CRPI::start_CRPI_SRV(string input_IP_ADDR, string input_PORT) {
+int Server_CRPI::start_CRPI_SRV() {
+	string input_IP_ADDR = "169.254.152.27";
+	string input_PORT    = "27000"; 
 	ConnectSocket = INVALID_SOCKET;
 	sendbuf = "this is a test";
 	recvbuflen = DEFAULT_BUFLEN;
@@ -192,7 +199,7 @@ robotAxes Server_CRPI::string_converter(string msg) {
 	// {rot0,rot1,rot2,rot3,rot4,rot5}
 	float array_of_pos[6];
 	float gripper;
-	float robot_util_array[6];
+	float robot_util_array[8];
 	robotAxes unity_pose;
 	bool action_cmd = false; 
 	string temp_msg;
@@ -275,6 +282,9 @@ robotAxes Server_CRPI::string_converter(string msg) {
 		do_cmd_list[1] = robot_util_array[3];
 		do_cmd_list[2] = robot_util_array[4];
 		do_cmd_list[3] = robot_util_array[5];
+		override_robot_id = robot_util_array[6];
+		change_robots     = robot_util_array[7]; 
+		
 	}
 	else {
 		cout << "Message is null." << endl;
@@ -324,7 +334,7 @@ void Server_CRPI::recieve_message() {
 		//Send a CRPI Message given the correct string
 		if (SHUTOFF_CRPI == 0) {
 			pose_msg = string_converter(action_string_TCP); //Interpret a robot_pose 
-			if (old_robot_id != robot_id) { //Changer for robot IDs in Unity
+			if (old_robot_id != robot_id && robot_id != 0) { //Changer for robot IDs in Unity
 				act_changer_unity(robot_id);
 				start_CRPI_encoding();
 				old_robot_id = robot_id;
@@ -361,7 +371,6 @@ void Server_CRPI::send_gripper_cmd(float vals) {
 	}
 
 }
-
 
 //Export a digital output value out to the robot
 void Server_CRPI::send_DO_cmds(bool ary_in[4]) {
@@ -425,9 +434,165 @@ void Server_CRPI::act_changer_unity(int changer){
 	//start_CRPI_SRV(adr_IP, port_num);
 }
 
+
+//Function to access memory space shared by both the client and server 
+void Server_CRPI::access_shared_space() {
+	if (override_robot_id == 1) {
+		lock_guard<mutex> guard(shared_mutex);
+		if (change_robots == 1) {
+			robot_id = stoi(_shared_mem);
+		}
+	}
+}
+
+
+///CLIENT SPECIFIC FUNCTIONALITY	
+int Client_CRPI::start_client() {
+	string IP_address = "127.0.0.1";
+	string Port_num = "27001";
+	ConnectSocket = INVALID_SOCKET;
+	sendbuf = "this is a test";
+	recvbuflen = DEFAULT_BUFLEN;
+
+	cout << "Starting Connection from Vicom Client" << endl;
+	// Initialize Winsock
+	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (iResult != 0) {
+		printf("WSAStartup failed with error: %d\n", iResult);
+		return 1;
+	}
+
+	ZeroMemory(&hints, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	// Resolve the server address and port
+	//iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
+	iResult = getaddrinfo(IP_address.c_str(), Port_num.c_str(), &hints, &result);
+
+	if (iResult != 0) {
+		printf("getaddrinfo failed with error: %d\n", iResult);
+		WSACleanup();
+		return 2;
+	}
+
+	// Attempt to connect to an address until one succeeds
+	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
+
+		// Create a SOCKET for connecting to server
+		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
+			ptr->ai_protocol);
+		if (ConnectSocket == INVALID_SOCKET) {
+			printf("socket failed with error: %ld\n", WSAGetLastError());
+			WSACleanup();
+			return 3;
+		}
+
+		// Connect to server.
+		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+		if (iResult == SOCKET_ERROR) {
+			closesocket(ConnectSocket);
+			ConnectSocket = INVALID_SOCKET;
+			continue;
+		}
+		break;
+	}
+
+	freeaddrinfo(result);
+
+	if (ConnectSocket == INVALID_SOCKET) {
+		printf("Unable to connect to server!\n");
+		WSACleanup();
+		return 4;
+	}
+
+	cout << "Initialization Done. Starting Client reception..." << endl;
+	recieve_message();
+
+	// Receive until the peer closes the connection
+	close_client();
+
+	return 0;
+}
+void Client_CRPI::recieve_message() {
+	int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
+	//cout << "Enter amount of cycles the program should run: " << endl;
+	//cin >> CYCLE_RUNS;
+	cout << "Waiting for connection to server." << endl;
+	do {
+
+		//Highly sensitive stuff
+		char recvbuf[DEFAULT_BUFLEN];
+		action_string_TCP = "";
+		iResult = recv(ConnectSocket, recvbuf, 256, 0);
+
+		if (iResult > 0) {
+			printf("Bytes received: %d\n", iResult);
+		}
+		else if (iResult == 0)
+			printf("Connection closed\n");
+		else
+			printf("recv failed with error: %d\n", WSAGetLastError());
+
+
+		//Bytes recieved - Phrase TPC input
+		for (int i = 0; i < iResult; i++) {
+			action_string_TCP += recvbuf[i];
+			//cout << recvbuf[i];
+		}
+
+		cout << "Recieved message: " << action_string_TCP << endl;
+
+		//Send a CRPI Message given the correct string
+		if (SHUTOFF_CRPI == 0) {
+			obtained_msg = action_string_TCP; 
+
+		}
+
+		//Put the brakes on TPC client
+		for (int x = 0; x < 256; x++)
+			recvbuf[x] = '\0';
+
+		Sleep(500);
+		cycle_counter++;
+		cout << "Cycle " << cycle_counter << endl;
+		cout << endl;
+
+	} while (iResult > 0 && CYCLE_RUNS >= cycle_counter);
+}
+void Client_CRPI::close_client() {
+	iResult = shutdown(ConnectSocket, SD_SEND);
+	if (iResult == SOCKET_ERROR) {
+		printf("Shutdown Failure");
+	}
+
+	// cleanup
+	closesocket(ConnectSocket);
+	WSACleanup();
+	cout << "Closing Client" << endl;
+	//return 0;
+}
+
+
+void Client_CRPI::access_shared_space() {
+	lock_guard<mutex> guard(shared_mutex);
+	_shared_mem = obtained_msg; 
+}
+
+
 int __cdecl main(int argc, char **argv) {
-	Server_CRPI server; 
-	server.start_CRPI_SRV("169.254.152.27","27000");
+	//Server_CRPI server; 
+	thread t(&Client_CRPI::start_client,Client_CRPI());
+	thread q(&Server_CRPI::start_CRPI_SRV, Server_CRPI());
+	//server.start_CRPI_SRV("169.254.152.27","27000");
+
+	t.join();
+	q.join();
+
+	t.detach();
+	q.detach();
+	
 	cout << "Closing client-server." << endl;
 	return 0;
 	

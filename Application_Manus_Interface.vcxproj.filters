@@ -20,11 +20,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="universal_ur5.xml">
-      <Filter>Source Files</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="CRPI_Unity_Tunnel.h">
       <Filter>Header Files</Filter>
     </ClInclude>

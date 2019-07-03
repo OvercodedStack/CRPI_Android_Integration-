@@ -148,9 +148,6 @@
   <ItemGroup>
     <ClInclude Include="CRPI_Unity_Tunnel.h" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="universal_ur5.xml" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
