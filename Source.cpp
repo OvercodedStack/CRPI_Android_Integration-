@@ -40,52 +40,64 @@
 #include <mutex>
 #include <process.h>
 
+/////////////////////////////////////////////////////////////////////////////////
+
 // Need to link with Ws2_32.lib
 #pragma comment (lib, "Ws2_32.lib")
-
-
 #define DEFAULT_BUFLEN 256
 #define DEFAULT_PORT "27000"
  
 using namespace std;
 using namespace crpi_robot;
 
-struct addrinfo *result = NULL,
-	*ptr = NULL,
-	hints;
-
-
-
+struct addrinfo *result = NULL,	*ptr = NULL, hints;
+struct addrinfo *result_2 = NULL, *ptr_2 = NULL, hints_2;
 //Set this bit for debugging with or without CRPI 
 const int SHUTOFF_CRPI = 0; 
-mutex shared_mutex;
-string _shared_mem = "";
 
+/////////////////////////////////////////////////////////////////////////////////
 //Dummy constructor 
 Server_CRPI::Server_CRPI() {
 }
 
-//General setup and running of the TCP server connection 
 //("169.254.152.27", "27000")
 //int Server_CRPI::start_CRPI_SRV(string input_IP_ADDR, string input_PORT) {
+//General setup and running of the TCP server connection 
 int Server_CRPI::start_CRPI_SRV() {
-	string input_IP_ADDR = "169.254.152.27";
-	string input_PORT    = "27000"; 
-	ConnectSocket = INVALID_SOCKET;
-	sendbuf = "this is a test";
-	recvbuflen = DEFAULT_BUFLEN;
+    adr_IP_android = "169.254.152.27";
+	port_android   = "27000";
+	adr_IP_vicon   = "127.0.0.1";
+	port_vicon     = "27001";
 
+
+	//Welcome to the Unity 
+	cout << "=======================================================================" << endl;
+	cout << "Welcome to the Unity -> CRPI Controller with Vicom support" << endl;
+	cout << "The program will run automatically when both the vicom and target unity" << endl;
+	cout << "source programs are running their TCP servers. This client will attempt" << endl;
+	cout << "to connect to them and send signals to CRPI." << endl;
+	cout << "=======================================================================" << endl;
+
+	//Setup proceedures	
+	vicon_socket = android_socket = INVALID_SOCKET;
+	recvbuflen_V = recvbuflen_A = DEFAULT_BUFLEN;
+	sendbuf_vicon = sendbuf_android = "this is a test";
 	cout << "Starting Connection." << endl;
 
-	//CRPI Robot UR5
-	//Start the CRPI Comms
 
- 
+
 
 	// Initialize Winsock
-	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (iResult != 0) {
-		printf("WSAStartup failed with error: %d\n", iResult);
+	iResult_V = WSAStartup(MAKEWORD(2, 2), &vicon_cli);
+	iResult_A = WSAStartup(MAKEWORD(2, 2), &android_cli);
+
+	//Check the startup proceedures for the sockets 
+	if (iResult_A != 0) {
+		printf("WSAStartup failed with error: %d\n", iResult_A);
+		return 1;
+	}
+	if (iResult_V != 0) {
+		printf("WSAStartup failed with error: %d\n", iResult_V);
 		return 1;
 	}
 
@@ -94,53 +106,202 @@ int Server_CRPI::start_CRPI_SRV() {
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	// Resolve the server address and port
-	//iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
-	iResult = getaddrinfo(input_IP_ADDR.c_str(), input_PORT.c_str(), &hints, &result);
+	ZeroMemory(&hints_2, sizeof(hints_2));
+	hints_2.ai_family = AF_INET;
+	hints_2.ai_socktype = SOCK_STREAM;
+	hints_2.ai_protocol = IPPROTO_TCP;
 
-	if (iResult != 0) {
-		printf("getaddrinfo failed with error: %d\n", iResult);
+	// Resolve the server address and port
+	iResult_A = getaddrinfo(adr_IP_android.c_str(), port_android.c_str(), &hints, &result);
+	iResult_V = getaddrinfo(adr_IP_vicon.c_str(), port_vicon.c_str(), &hints_2, &result_2);
+
+	//Check if the addresses are valid ports/IPs 
+	if (iResult_A != 0) {
+		printf("getaddrinfo failed with error: %d\n", iResult_A);
+		WSACleanup();
+		return 2;
+	}
+	if (iResult_V != 0) {
+		printf("getaddrinfo failed with error: %d\n", iResult_V);
 		WSACleanup();
 		return 2;
 	}
 
+
+	cout << "Starting client 1" << endl;
+	///////////////////////////////////////////////////////////////////////////////
 	// Attempt to connect to an address until one succeeds
 	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
 
 		// Create a SOCKET for connecting to server
-		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
-			ptr->ai_protocol);
-		if (ConnectSocket == INVALID_SOCKET) {
+		android_socket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+		if (android_socket == INVALID_SOCKET) {
 			printf("socket failed with error: %ld\n", WSAGetLastError());
 			WSACleanup();
 			return 3;
 		}
 
 		// Connect to server.
-		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (iResult == SOCKET_ERROR) {
-			closesocket(ConnectSocket);
-			ConnectSocket = INVALID_SOCKET;
+		iResult_A = connect(android_socket, ptr->ai_addr, (int)ptr->ai_addrlen);
+		if (iResult_A == SOCKET_ERROR) {
+			closesocket(android_socket);
+			android_socket = INVALID_SOCKET;
+			continue;
+		}
+		break;
+	}	
+
+	if (android_socket == INVALID_SOCKET) {
+		printf("Unable to connect to server!\n");
+		WSACleanup();
+		return 4;
+	}
+	freeaddrinfo(result);
+
+	cout << "Starting client 2" << endl;
+	/////////////////////////////////////////////////////////////////////////////////
+	for (ptr_2 = result_2; ptr_2 != NULL; ptr_2 = ptr_2->ai_next) {
+		// Create a SOCKET for connecting to server
+		vicon_socket = socket(ptr_2->ai_family, ptr_2->ai_socktype, ptr_2->ai_protocol);
+		if (vicon_socket == INVALID_SOCKET) {
+			printf("socket failed with error: %ld\n", WSAGetLastError());
+			WSACleanup();
+			return 3;
+		}
+
+		// Connect to server.
+		iResult_V = connect(vicon_socket, ptr_2->ai_addr, (int)ptr_2->ai_addrlen);
+		if (iResult_V == SOCKET_ERROR) {
+			closesocket(vicon_socket);
+			vicon_socket = INVALID_SOCKET;
 			continue;
 		}
 		break;
 	}
 
-	freeaddrinfo(result);
-
-	if (ConnectSocket == INVALID_SOCKET) {
+	if (vicon_socket == INVALID_SOCKET) {
 		printf("Unable to connect to server!\n");
 		WSACleanup();
 		return 4;
 	}
+	freeaddrinfo(result_2);
+	///////////////////////////////////////////////////////////////////////////////////
 
 	cout << "Initialization Done. Starting Client reception..." << endl;
-	recieve_message();
+	cout << endl; 
+	
+	//Loop for the reception of messages
+	//int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
+	do {
+		recieve_message_android();
+		recieve_message_vicon();
+
+
+		//Send a CRPI Message given the correct string
+		if (SHUTOFF_CRPI == 0) {
+			pose_msg = string_converter(action_TCP_Android); //Interpret a robot_pose 
+			if (old_robot_id != robot_id && robot_id != 0) { //Changer for robot IDs in Unity
+				act_changer_unity(robot_id);
+				start_CRPI_encoding();
+				old_robot_id = robot_id;
+			}
+			if (robot_id != 0) //Precautionary action in case we fail to get any robot ID
+				send_crpi_msg(pose_msg);
+		}
+
+		/*
+		Sleep(500);
+		cycle_counter++;
+		cout << "Cycle " << cycle_counter << endl;
+		cout << endl;
+		*/
+	} while (activate_shutdown == false);
+	//(CYCLE_RUNS >= cycle_counter);
 	
 	// Receive until the peer closes the connection
-	close_client();
-		
+	cout << "=======================================================================" << endl;
+	close_client_vicon();
+	cout << "=======================================================================" << endl;
+	close_client_android();
+	cout << "=======================================================================" << endl;
 	return 0; 
+}
+
+//TPC Reception message function
+void Server_CRPI::recieve_message_android() {
+
+	//Highly sensitive stuff
+	char recvbuf[DEFAULT_BUFLEN];
+	action_TCP_Android = "";
+	iResult_A = recv(android_socket, recvbuf, 256, 0);
+
+	if (iResult_A > 0) {
+		printf("Bytes received: %d\n", iResult_A);
+	}
+	else if (iResult_A == 0)
+		printf("Connection closed\n");
+	else {
+		printf("recv failed with error: %d\n", WSAGetLastError());
+		activate_shutdown = true; 
+	}
+
+	//Bytes recieved - Phrase TPC input
+	bool start_of_string = false; 
+
+	for (int i = 0; i < iResult_A; i++) {
+		if (recvbuf[i] == '#')
+			break;
+		else if (recvbuf[i] == '$')
+			start_of_string = true;
+		if (start_of_string)
+			action_TCP_Android += recvbuf[i];
+	}
+
+	cout << "Recieved message: " << action_TCP_Android << endl;
+
+	//Put the brakes on TPC client
+	for (int x = 0; x < 256; x++)
+		recvbuf[x] = '\0';
+}
+
+void Server_CRPI::recieve_message_vicon() {
+	//Highly sensitive stuff
+	char recvbuf[DEFAULT_BUFLEN];
+	action_TCP_Vicon = "";
+	iResult_V = recv(vicon_socket, recvbuf, 256, 0);
+
+	if (iResult_V > 0) {
+		printf("Bytes received: %d\n", iResult_V);
+	}
+	else if (iResult_V == 0)
+		printf("Connection closed\n");
+	else {
+		printf("recv failed with error: %d\n", WSAGetLastError());
+		activate_shutdown = true;
+	}
+
+	bool start_of_string = false;
+	//Bytes recieved - Phrase TPC input
+	for (int i = 0; i < iResult_V; i++) {
+		if (recvbuf[i] == '#')
+			break;
+		else if (recvbuf[i] == '$')
+			start_of_string = true;
+		if (start_of_string)
+			action_TCP_Vicon += recvbuf[i];
+	}
+
+	cout << "Recieved message: " << action_TCP_Vicon << endl;
+
+	if (override_robot_id == 1) {
+ 		if (change_robots == 1) {
+			robot_id = stoi(action_TCP_Vicon);
+		}
+	}
+ 
+	//Put the brakes on TPC client
+	for (int x = 0; x < 256; x++)
+		recvbuf[x] = '\0';
 }
 
 //Start the CRPI connection 
@@ -155,7 +316,6 @@ void Server_CRPI::start_CRPI_encoding() {
 	//Double Comparison check constant
 	const double TOLERANCE = 0.05;
 }
-
 
 //Function to determine and move UR5 to a specified location
 void Server_CRPI::send_crpi_msg(robotAxes unity_pose) {
@@ -181,7 +341,6 @@ void Server_CRPI::send_crpi_msg(robotAxes unity_pose) {
 	send_DO_cmds(do_cmd_list);
 	cout << "Pose movement completed." << endl;
 }
-
 
 //Custom string phraser from incoming message from Unity
 //I'm not well aware of standards on messages, so I made my own. 
@@ -301,60 +460,6 @@ robotAxes Server_CRPI::string_converter(string msg) {
 	return unity_pose;
 }
 
-//TPC Reception message function
-void Server_CRPI::recieve_message() {
-	int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
-	//cout << "Enter amount of cycles the program should run: " << endl;
-	//cin >> CYCLE_RUNS;
-	cout << "Waiting for connection to server." << endl;
-	do {
-
-		//Highly sensitive stuff
-		char recvbuf[DEFAULT_BUFLEN];
-		action_string_TCP = "";
-		iResult = recv(ConnectSocket, recvbuf, 256, 0);
-
-		if (iResult > 0) {
-			printf("Bytes received: %d\n", iResult);
-		}
-		else if (iResult == 0)
-			printf("Connection closed\n");
-		else
-			printf("recv failed with error: %d\n", WSAGetLastError());
-
-
-		//Bytes recieved - Phrase TPC input
-		for (int i = 0; i < iResult; i++) {
-			action_string_TCP += recvbuf[i];
-			//cout << recvbuf[i];
-		}
-
-		cout << "Recieved message: " << action_string_TCP << endl;
-	 
-		//Send a CRPI Message given the correct string
-		if (SHUTOFF_CRPI == 0) {
-			pose_msg = string_converter(action_string_TCP); //Interpret a robot_pose 
-			if (old_robot_id != robot_id && robot_id != 0) { //Changer for robot IDs in Unity
-				act_changer_unity(robot_id);
-				start_CRPI_encoding();
-				old_robot_id = robot_id;
-			}
-			if (robot_id != 0) //Precautionary action in case we fail to get any robot ID
-				send_crpi_msg(pose_msg);
-		}
-
-		//Put the brakes on TPC client
-		for (int x = 0; x < 256; x++)
-			recvbuf[x] = '\0';
-
-		Sleep(500);
-		cycle_counter++;
-		cout << "Cycle " << cycle_counter << endl;
-		cout << endl;
-
-	} while (iResult > 0 && CYCLE_RUNS >= cycle_counter);
-}
-
 void Server_CRPI::send_gripper_cmd(float vals) {
 	//Avoid using gripper at the moment - Requires most likely some type of threading in order to use appropiately.
 	//Otherwise it will freeze the whole robot from doing anything. 
@@ -379,29 +484,51 @@ void Server_CRPI::send_DO_cmds(bool ary_in[4]) {
 }
 
 //Sends a message to the connected TCP server
-void Server_CRPI::send_message(string message) {
+void Server_CRPI::send_message_android(string message) {
 	// Send an initial buffer
-	iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
-	if (iResult == SOCKET_ERROR) {
+	iResult_A = send(android_socket, sendbuf_android, (int)strlen(sendbuf_android), 0);
+	if (iResult_A == SOCKET_ERROR) {
 		printf("send failed with error: %d\n", WSAGetLastError());
-		closesocket(ConnectSocket);
+		closesocket(android_socket);
 		WSACleanup();
-		//--return 1;
+ 	}
+	printf("Bytes Sent: %ld\n", iResult_A);
+}
+
+void Server_CRPI::send_message_vicon(string message) {
+	// Send an initial buffer
+	iResult_V = send(vicon_socket, sendbuf_vicon, (int)strlen(sendbuf_vicon), 0);
+	if (iResult_V == SOCKET_ERROR) {
+		printf("send failed with error: %d\n", WSAGetLastError());
+		closesocket(vicon_socket);
+		WSACleanup();
 	}
-	printf("Bytes Sent: %ld\n", iResult);
+	printf("Bytes Sent: %ld\n", iResult_V);
 }
 
 //Closes the TCP server client to cleanly exit and liberate the port
-void Server_CRPI::close_client() {
-	iResult = shutdown(ConnectSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
+void Server_CRPI::close_client_android() {
+	iResult_A = shutdown(android_socket, SD_SEND);
+	if (iResult_A == SOCKET_ERROR) {
 		printf("Shutdown Failure");
 	}
 
 	// cleanup
-	closesocket(ConnectSocket);
+	closesocket(android_socket);
 	WSACleanup();
-	cout << "Closing Client" << endl;
+	cout << "Closing Android Client" << endl;
+	//return 0;
+}
+void Server_CRPI::close_client_vicon() {
+	iResult_V = shutdown(vicon_socket, SD_SEND);
+	if (iResult_V == SOCKET_ERROR) {
+		printf("Shutdown Failure");
+	}
+
+	// cleanup
+	closesocket(vicon_socket);
+	WSACleanup();
+	cout << "Closing Vicon Client" << endl;
 	//return 0;
 }
 
@@ -435,17 +562,157 @@ void Server_CRPI::act_changer_unity(int changer){
 }
 
 
-//Function to access memory space shared by both the client and server 
-void Server_CRPI::access_shared_space() {
-	if (override_robot_id == 1) {
-		lock_guard<mutex> guard(shared_mutex);
-		if (change_robots == 1) {
-			robot_id = stoi(_shared_mem);
-		}
+///////////////////////////////////////////////////////////////////////////////////////
+int __cdecl main(int argc, char **argv) {
+	Server_CRPI server; 
+	//server.start_CRPI_SRV("169.254.152.27","27000");
+	server.start_CRPI_SRV();
+	cout << "Closing main program." << endl;
+	return 0;
+}
+////////////////////////////////////////////////////////////////////////////////////////
+
+
+//Old mono-client setup
+/*int Server_CRPI::start_CRPI_SRV() {
+	string input_IP_ADDR = "169.254.152.27";
+	string input_PORT    = "27000"; 
+	ConnectSocket = INVALID_SOCKET;
+	recvbuflen = DEFAULT_BUFLEN;
+
+	sendbuf = "this is a test";
+	cout << "Starting Connection." << endl;
+
+	// Initialize Winsock
+	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if (iResult != 0) {
+		printf("WSAStartup failed with error: %d\n", iResult);
+		return 1;
 	}
+
+	ZeroMemory(&hints, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	// Resolve the server address and port
+	//iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
+	iResult = getaddrinfo(input_IP_ADDR.c_str(), input_PORT.c_str(), &hints, &result);
+
+	if (iResult != 0) {
+		printf("getaddrinfo failed with error: %d\n", iResult);
+		WSACleanup();
+		return 2;
+	}
+
+	// Attempt to connect to an address until one succeeds
+	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
+
+		// Create a SOCKET for connecting to server
+		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
+			ptr->ai_protocol);
+		if (ConnectSocket == INVALID_SOCKET) {
+			printf("socket failed with error: %ld\n", WSAGetLastError());
+			WSACleanup();
+			return 3;
+		}
+
+		// Connect to server.
+		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+		if (iResult == SOCKET_ERROR) {
+			closesocket(ConnectSocket);
+			ConnectSocket = INVALID_SOCKET;
+			continue;
+		}
+		break;
+	}
+
+	freeaddrinfo(result);
+
+	if (ConnectSocket == INVALID_SOCKET) {
+		printf("Unable to connect to server!\n");
+		WSACleanup();
+		return 4;
+	}
+
+	cout << "Initialization Done. Starting Client reception..." << endl;
+	recieve_message();
+	
+	// Receive until the peer closes the connection
+	close_client();
+		
+	return 0; 
 }
 
+//TPC Reception message function
+void Server_CRPI::recieve_message() {
+	int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
+	//cout << "Enter amount of cycles the program should run: " << endl;
+	//cin >> CYCLE_RUNS;
+	cout << "Waiting for connection to server." << endl;
+	do {
 
+		//Highly sensitive stuff
+		char recvbuf[DEFAULT_BUFLEN];
+		action_string_TCP = "";
+		iResult = recv(ConnectSocket, recvbuf, 256, 0);
+
+		if (iResult > 0) {
+			printf("Bytes received: %d\n", iResult);
+		}
+		else if (iResult == 0)
+			printf("Connection closed\n");
+		else
+			printf("recv failed with error: %d\n", WSAGetLastError());
+
+
+		//Bytes recieved - Phrase TPC input
+		for (int i = 0; i < iResult; i++) {
+			action_string_TCP += recvbuf[i];
+			//cout << recvbuf[i];
+		}
+
+		cout << "Recieved message: " << action_string_TCP << endl;
+
+		//Send a CRPI Message given the correct string
+		if (SHUTOFF_CRPI == 0) {
+			pose_msg = string_converter(action_string_TCP); //Interpret a robot_pose 
+			if (old_robot_id != robot_id && robot_id != 0) { //Changer for robot IDs in Unity
+				act_changer_unity(robot_id);
+				start_CRPI_encoding();
+				old_robot_id = robot_id;
+			}
+			if (robot_id != 0) //Precautionary action in case we fail to get any robot ID
+				send_crpi_msg(pose_msg);
+		}
+
+		//Put the brakes on TPC client
+		for (int x = 0; x < 256; x++)
+			recvbuf[x] = '\0';
+
+		Sleep(500);
+		cycle_counter++;
+		cout << "Cycle " << cycle_counter << endl;
+		cout << endl;
+
+	} while (iResult > 0 && CYCLE_RUNS >= cycle_counter);
+}
+*/
+
+
+//int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
+//cout << "Enter amount of cycles the program should run: " << endl;
+//cin >> CYCLE_RUNS;
+//cout << "Waiting for connection to server." << endl;
+//do {
+
+//Sleep(500);
+//cycle_counter++;
+//cout << "Cycle " << cycle_counter << endl;
+//cout << endl;
+
+//} while (iResult > 0 && CYCLE_RUNS >= cycle_counter);
+/*
 ///CLIENT SPECIFIC FUNCTIONALITY	
 int Client_CRPI::start_client() {
 	string IP_address = "127.0.0.1";
@@ -481,8 +748,7 @@ int Client_CRPI::start_client() {
 	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
 
 		// Create a SOCKET for connecting to server
-		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
-			ptr->ai_protocol);
+		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 		if (ConnectSocket == INVALID_SOCKET) {
 			printf("socket failed with error: %ld\n", WSAGetLastError());
 			WSACleanup();
@@ -578,22 +844,4 @@ void Client_CRPI::close_client() {
 void Client_CRPI::access_shared_space() {
 	lock_guard<mutex> guard(shared_mutex);
 	_shared_mem = obtained_msg; 
-}
-
-
-int __cdecl main(int argc, char **argv) {
-	//Server_CRPI server; 
-	thread t(&Client_CRPI::start_client,Client_CRPI());
-	thread q(&Server_CRPI::start_CRPI_SRV, Server_CRPI());
-	//server.start_CRPI_SRV("169.254.152.27","27000");
-
-	t.join();
-	q.join();
-
-	t.detach();
-	q.detach();
-	
-	cout << "Closing client-server." << endl;
-	return 0;
-	
-}
+	}*/
