@@ -55,6 +55,7 @@ public:
 	const char *sendbuf_android;
 	bool activate_shutdown = false; 
 
+	int timeout_interval; 
 
 	string list_IPs[128]; //Amount of stored robots in IP scanning
 	float digital_data_in[8]; //Adjust as needed

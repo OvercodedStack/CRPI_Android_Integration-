@@ -68,7 +68,7 @@ int Server_CRPI::start_CRPI_SRV() {
 	port_android   = "27000";
 	adr_IP_vicon   = "127.0.0.1";
 	port_vicon     = "27001";
-
+	timeout_interval = 0;
 
 	//Welcome to the Unity 
 	cout << "=======================================================================" << endl;
@@ -83,9 +83,6 @@ int Server_CRPI::start_CRPI_SRV() {
 	recvbuflen_V = recvbuflen_A = DEFAULT_BUFLEN;
 	sendbuf_vicon = sendbuf_android = "this is a test";
 	cout << "Starting Connection." << endl;
-
-
-
 
 	// Initialize Winsock
 	iResult_V = WSAStartup(MAKEWORD(2, 2), &vicon_cli);
@@ -128,7 +125,7 @@ int Server_CRPI::start_CRPI_SRV() {
 	}
 
 
-	cout << "Starting client 1" << endl;
+	cout << "Starting client Android" << endl;
 	///////////////////////////////////////////////////////////////////////////////
 	// Attempt to connect to an address until one succeeds
 	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
@@ -158,7 +155,7 @@ int Server_CRPI::start_CRPI_SRV() {
 	}
 	freeaddrinfo(result);
 
-	cout << "Starting client 2" << endl;
+	cout << "Starting client Vicon" << endl;
 	/////////////////////////////////////////////////////////////////////////////////
 	for (ptr_2 = result_2; ptr_2 != NULL; ptr_2 = ptr_2->ai_next) {
 		// Create a SOCKET for connecting to server
@@ -189,9 +186,9 @@ int Server_CRPI::start_CRPI_SRV() {
 
 	cout << "Initialization Done. Starting Client reception..." << endl;
 	cout << endl; 
-	
+
+	// Receive until the peer closes the connection
 	//Loop for the reception of messages
-	//int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
 	do {
 		recieve_message_android();
 		recieve_message_vicon();
@@ -209,16 +206,20 @@ int Server_CRPI::start_CRPI_SRV() {
 				send_crpi_msg(pose_msg);
 		}
 
-		/*
-		Sleep(500);
-		cycle_counter++;
-		cout << "Cycle " << cycle_counter << endl;
-		cout << endl;
-		*/
+		//Report to the Android tablet the status of which robot is being looked at by the user. 
+		send_message_android(to_string(robot_id)); 
+
+		//Timeout_interval refers to the amount of loss of messages dropped so far to justify closing the connection.  
+		if (timeout_interval == 10) {
+			activate_shutdown = true;
+		}
+		else {
+			timeout_interval = 0; 
+		}
+
+
 	} while (activate_shutdown == false);
-	//(CYCLE_RUNS >= cycle_counter);
 	
-	// Receive until the peer closes the connection
 	cout << "=======================================================================" << endl;
 	close_client_vicon();
 	cout << "=======================================================================" << endl;
@@ -344,7 +345,6 @@ void Server_CRPI::send_crpi_msg(robotAxes unity_pose) {
 
 //Custom string phraser from incoming message from Unity
 //I'm not well aware of standards on messages, so I made my own. 
-//Apologies if this is gibberish :(
 robotAxes Server_CRPI::string_converter(string msg) {
 	//  UR5_pos:-42.58, -43.69, -99.57, 233.2, -89.66, -47.09;Gripper:0; 
 	// array_of_pos[6] = {x,y,z,xrot,yrot,zrot};
@@ -446,6 +446,7 @@ robotAxes Server_CRPI::string_converter(string msg) {
 		
 	}
 	else {
+		timeout_interval += 1; 
 		cout << "Message is null." << endl;
 	}
 
@@ -558,14 +559,12 @@ void Server_CRPI::act_changer_unity(int changer){
 		printf("No suitable robot at the moment");
 		return; 
 	}
-	//start_CRPI_SRV(adr_IP, port_num);
 }
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
 int __cdecl main(int argc, char **argv) {
 	Server_CRPI server; 
-	//server.start_CRPI_SRV("169.254.152.27","27000");
 	server.start_CRPI_SRV();
 	cout << "Closing main program." << endl;
 	return 0;
@@ -574,6 +573,19 @@ int __cdecl main(int argc, char **argv) {
 
 
 //Old mono-client setup
+
+
+
+
+
+//int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
+/*
+Sleep(500);
+cycle_counter++;
+cout << "Cycle " << cycle_counter << endl;
+cout << endl;
+*/
+
 /*int Server_CRPI::start_CRPI_SRV() {
 	string input_IP_ADDR = "169.254.152.27";
 	string input_PORT    = "27000"; 
