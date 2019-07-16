@@ -190,13 +190,32 @@ int Server_CRPI::start_CRPI_SRV() {
 	// Receive until the peer closes the connection
 	//Loop for the reception of messages
 	do {
+		cout << endl;
+		cout << "Android Bracket" << endl;
 		recieve_message_android();
+		cout << endl; 
+		cout << "Vicon Bracket" << endl; 
 		recieve_message_vicon();
 
 
 		//Send a CRPI Message given the correct string
-		if (SHUTOFF_CRPI == 0) {
+		if (SHUTOFF_CRPI == 0 && action_TCP_Android.length() > 10 && action_TCP_Vicon.length() > 2) {
 			pose_msg = string_converter(action_TCP_Android); //Interpret a robot_pose 
+
+			//Selection of the robot based on user option (Big change robot button on UI) 
+			if (override_robot_id == 1) {
+				if (change_robots == 1) {
+					robot_id = manual_robot_id;
+				}
+			}
+			else if (change_robots == 1) {
+				action_TCP_Vicon.erase(0, 1);
+				action_TCP_Vicon.erase(1, 1);
+				robot_id = stoi(action_TCP_Vicon);
+			}
+			//robot_id states the robot ID that will be used to swap between Vicom and Override. 
+			//cout << robot_id << endl;
+
 			if (old_robot_id != robot_id && robot_id != 0) { //Changer for robot IDs in Unity
 				act_changer_unity(robot_id);
 				start_CRPI_encoding();
@@ -294,11 +313,6 @@ void Server_CRPI::recieve_message_vicon() {
 
 	cout << "Recieved message: " << action_TCP_Vicon << endl;
 
-	if (override_robot_id == 1) {
- 		if (change_robots == 1) {
-			robot_id = stoi(action_TCP_Vicon);
-		}
-	}
  
 	//Put the brakes on TPC client
 	for (int x = 0; x < 256; x++)
@@ -435,7 +449,7 @@ robotAxes Server_CRPI::string_converter(string msg) {
 				cout << robot_util_array[i] << endl;
 			}
 		}
-		robot_id = robot_util_array[0];
+		manual_robot_id = robot_util_array[0];
 		gripper_ratio = robot_util_array[1];
 		do_cmd_list[0] = robot_util_array[2];
 		do_cmd_list[1] = robot_util_array[3];
@@ -570,290 +584,4 @@ int __cdecl main(int argc, char **argv) {
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////
-
-
-//Old mono-client setup
-
-
-
-
-
-//int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
-/*
-Sleep(500);
-cycle_counter++;
-cout << "Cycle " << cycle_counter << endl;
-cout << endl;
-*/
-
-/*int Server_CRPI::start_CRPI_SRV() {
-	string input_IP_ADDR = "169.254.152.27";
-	string input_PORT    = "27000"; 
-	ConnectSocket = INVALID_SOCKET;
-	recvbuflen = DEFAULT_BUFLEN;
-
-	sendbuf = "this is a test";
-	cout << "Starting Connection." << endl;
-
-	// Initialize Winsock
-	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (iResult != 0) {
-		printf("WSAStartup failed with error: %d\n", iResult);
-		return 1;
-	}
-
-	ZeroMemory(&hints, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	// Resolve the server address and port
-	//iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
-	iResult = getaddrinfo(input_IP_ADDR.c_str(), input_PORT.c_str(), &hints, &result);
-
-	if (iResult != 0) {
-		printf("getaddrinfo failed with error: %d\n", iResult);
-		WSACleanup();
-		return 2;
-	}
-
-	// Attempt to connect to an address until one succeeds
-	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-
-		// Create a SOCKET for connecting to server
-		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
-			ptr->ai_protocol);
-		if (ConnectSocket == INVALID_SOCKET) {
-			printf("socket failed with error: %ld\n", WSAGetLastError());
-			WSACleanup();
-			return 3;
-		}
-
-		// Connect to server.
-		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (iResult == SOCKET_ERROR) {
-			closesocket(ConnectSocket);
-			ConnectSocket = INVALID_SOCKET;
-			continue;
-		}
-		break;
-	}
-
-	freeaddrinfo(result);
-
-	if (ConnectSocket == INVALID_SOCKET) {
-		printf("Unable to connect to server!\n");
-		WSACleanup();
-		return 4;
-	}
-
-	cout << "Initialization Done. Starting Client reception..." << endl;
-	recieve_message();
-	
-	// Receive until the peer closes the connection
-	close_client();
-		
-	return 0; 
-}
-
-//TPC Reception message function
-void Server_CRPI::recieve_message() {
-	int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
-	//cout << "Enter amount of cycles the program should run: " << endl;
-	//cin >> CYCLE_RUNS;
-	cout << "Waiting for connection to server." << endl;
-	do {
-
-		//Highly sensitive stuff
-		char recvbuf[DEFAULT_BUFLEN];
-		action_string_TCP = "";
-		iResult = recv(ConnectSocket, recvbuf, 256, 0);
-
-		if (iResult > 0) {
-			printf("Bytes received: %d\n", iResult);
-		}
-		else if (iResult == 0)
-			printf("Connection closed\n");
-		else
-			printf("recv failed with error: %d\n", WSAGetLastError());
-
-
-		//Bytes recieved - Phrase TPC input
-		for (int i = 0; i < iResult; i++) {
-			action_string_TCP += recvbuf[i];
-			//cout << recvbuf[i];
-		}
-
-		cout << "Recieved message: " << action_string_TCP << endl;
-
-		//Send a CRPI Message given the correct string
-		if (SHUTOFF_CRPI == 0) {
-			pose_msg = string_converter(action_string_TCP); //Interpret a robot_pose 
-			if (old_robot_id != robot_id && robot_id != 0) { //Changer for robot IDs in Unity
-				act_changer_unity(robot_id);
-				start_CRPI_encoding();
-				old_robot_id = robot_id;
-			}
-			if (robot_id != 0) //Precautionary action in case we fail to get any robot ID
-				send_crpi_msg(pose_msg);
-		}
-
-		//Put the brakes on TPC client
-		for (int x = 0; x < 256; x++)
-			recvbuf[x] = '\0';
-
-		Sleep(500);
-		cycle_counter++;
-		cout << "Cycle " << cycle_counter << endl;
-		cout << endl;
-
-	} while (iResult > 0 && CYCLE_RUNS >= cycle_counter);
-}
-*/
-
-
-//int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
-//cout << "Enter amount of cycles the program should run: " << endl;
-//cin >> CYCLE_RUNS;
-//cout << "Waiting for connection to server." << endl;
-//do {
-
-//Sleep(500);
-//cycle_counter++;
-//cout << "Cycle " << cycle_counter << endl;
-//cout << endl;
-
-//} while (iResult > 0 && CYCLE_RUNS >= cycle_counter);
-/*
-///CLIENT SPECIFIC FUNCTIONALITY	
-int Client_CRPI::start_client() {
-	string IP_address = "127.0.0.1";
-	string Port_num = "27001";
-	ConnectSocket = INVALID_SOCKET;
-	sendbuf = "this is a test";
-	recvbuflen = DEFAULT_BUFLEN;
-
-	cout << "Starting Connection from Vicom Client" << endl;
-	// Initialize Winsock
-	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (iResult != 0) {
-		printf("WSAStartup failed with error: %d\n", iResult);
-		return 1;
-	}
-
-	ZeroMemory(&hints, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	// Resolve the server address and port
-	//iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
-	iResult = getaddrinfo(IP_address.c_str(), Port_num.c_str(), &hints, &result);
-
-	if (iResult != 0) {
-		printf("getaddrinfo failed with error: %d\n", iResult);
-		WSACleanup();
-		return 2;
-	}
-
-	// Attempt to connect to an address until one succeeds
-	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-
-		// Create a SOCKET for connecting to server
-		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-		if (ConnectSocket == INVALID_SOCKET) {
-			printf("socket failed with error: %ld\n", WSAGetLastError());
-			WSACleanup();
-			return 3;
-		}
-
-		// Connect to server.
-		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (iResult == SOCKET_ERROR) {
-			closesocket(ConnectSocket);
-			ConnectSocket = INVALID_SOCKET;
-			continue;
-		}
-		break;
-	}
-
-	freeaddrinfo(result);
-
-	if (ConnectSocket == INVALID_SOCKET) {
-		printf("Unable to connect to server!\n");
-		WSACleanup();
-		return 4;
-	}
-
-	cout << "Initialization Done. Starting Client reception..." << endl;
-	recieve_message();
-
-	// Receive until the peer closes the connection
-	close_client();
-
-	return 0;
-}
-void Client_CRPI::recieve_message() {
-	int close_sess = 0, cycle_counter = 0, CYCLE_RUNS = 10;
-	//cout << "Enter amount of cycles the program should run: " << endl;
-	//cin >> CYCLE_RUNS;
-	cout << "Waiting for connection to server." << endl;
-	do {
-
-		//Highly sensitive stuff
-		char recvbuf[DEFAULT_BUFLEN];
-		action_string_TCP = "";
-		iResult = recv(ConnectSocket, recvbuf, 256, 0);
-
-		if (iResult > 0) {
-			printf("Bytes received: %d\n", iResult);
-		}
-		else if (iResult == 0)
-			printf("Connection closed\n");
-		else
-			printf("recv failed with error: %d\n", WSAGetLastError());
-
-
-		//Bytes recieved - Phrase TPC input
-		for (int i = 0; i < iResult; i++) {
-			action_string_TCP += recvbuf[i];
-			//cout << recvbuf[i];
-		}
-
-		cout << "Recieved message: " << action_string_TCP << endl;
-
-		//Send a CRPI Message given the correct string
-		if (SHUTOFF_CRPI == 0) {
-			obtained_msg = action_string_TCP; 
-
-		}
-
-		//Put the brakes on TPC client
-		for (int x = 0; x < 256; x++)
-			recvbuf[x] = '\0';
-
-		Sleep(500);
-		cycle_counter++;
-		cout << "Cycle " << cycle_counter << endl;
-		cout << endl;
-
-	} while (iResult > 0 && CYCLE_RUNS >= cycle_counter);
-}
-void Client_CRPI::close_client() {
-	iResult = shutdown(ConnectSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
-		printf("Shutdown Failure");
-	}
-
-	// cleanup
-	closesocket(ConnectSocket);
-	WSACleanup();
-	cout << "Closing Client" << endl;
-	//return 0;
-}
-
-
-void Client_CRPI::access_shared_space() {
-	lock_guard<mutex> guard(shared_mutex);
-	_shared_mem = obtained_msg; 
-	}*/
+ 
