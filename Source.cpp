@@ -478,18 +478,14 @@ robotAxes Server_CRPI::string_converter(string msg) {
 void Server_CRPI::send_gripper_cmd(float vals) {
 	//Avoid using gripper at the moment - Requires most likely some type of threading in order to use appropiately.
 	//Otherwise it will freeze the whole robot from doing anything. 
-
-	if (open_grip >= 0.5F ) {
-		if (arm->SetRobotDO(0, 1) == CANON_SUCCESS) {
-			cout << "Gripped" << endl;
-		}
+	if (vals == 0) {
+ 		cout << "Not Gripped" << endl;
 	}
 	else {
-		if (arm->SetRobotDO(0, 0) == CANON_SUCCESS) {
-			cout << "Un-Gripped" << endl;
-		}//Open the gripper on UR
+		cout << "Gripped" << endl;
 	}
-
+		arm->SetRobotDO(0, (int) vals);
+	
 }
 
 //Export a digital output value out to the robot
@@ -500,7 +496,8 @@ void Server_CRPI::send_DO_cmds(bool ary_in[4]) {
 
 //Sends a message to the connected TCP server
 void Server_CRPI::send_message_android(string message) {
-	// Send an initial buffer
+	// Send an initial buffer.
+	sendbuf_android = message.c_str(); 
 	iResult_A = send(android_socket, sendbuf_android, (int)strlen(sendbuf_android), 0);
 	if (iResult_A == SOCKET_ERROR) {
 		printf("send failed with error: %d\n", WSAGetLastError());
