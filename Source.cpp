@@ -352,7 +352,7 @@ void Server_CRPI::send_crpi_msg(robotAxes unity_pose) {
 	{
 		cout << "Failure" << endl;
 	}
-	send_gripper_cmd(gripper_ratio);
+	//send_gripper_cmd(gripper_ratio);
 	send_DO_cmds(do_cmd_list);
 	cout << "Pose movement completed." << endl;
 }
@@ -478,20 +478,32 @@ robotAxes Server_CRPI::string_converter(string msg) {
 void Server_CRPI::send_gripper_cmd(float vals) {
 	//Avoid using gripper at the moment - Requires most likely some type of threading in order to use appropiately.
 	//Otherwise it will freeze the whole robot from doing anything. 
-	if (vals == 0) {
- 		cout << "Not Gripped" << endl;
+
+	if (vals != old_gripper_status) {
+		
+		if (vals == 0) {
+			cout << "Not Gripped" << endl;
+		}
+		else {
+			cout << "Gripped" << endl;
+		}
+
+		Sleep(250);
+		arm->SetRobotDO(0, (int)vals);
 	}
-	else {
-		cout << "Gripped" << endl;
-	}
-		arm->SetRobotDO(0, (int) vals);
+	
 	
 }
 
 //Export a digital output value out to the robot
 void Server_CRPI::send_DO_cmds(bool ary_in[4]) {
-	arm->SetRobotDO(8, ary_in[0]);
+	Sleep(250);
+	arm->SetRobotDO(0, ary_in[0]);
+	Sleep(250);
+
 	arm->SetRobotDO(9, ary_in[1]);
+	Sleep(250);
+
 }
 
 //Sends a message to the connected TCP server

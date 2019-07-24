@@ -75,6 +75,7 @@ public:
 	//Additional blub for changing robots
 	int override_robot_id; //Numbers correspond to a robot type
 	int change_robots; 
+	int old_gripper_status = 0; 
 
 	//CRPI Settings
 	robotAxes pose_msg;
