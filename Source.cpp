@@ -15,13 +15,21 @@
 //
 //	Custom string unity provided by unity is phrased by this program as well. 
 //
-//	Quik Start instructions
+//	Quick Start instructions
 //	============
 //
 //	Run the Manus_interface.exe program. The program will start and ask for the amount of cycles you would like to run the 
 //	program for. Each cycle has a 2 second delay and is nesseary to avoid overloading the UR5 controller with too many pose 
 //	commands. The program also depends on having information being delivered at a constant rate greater than 1 second
 //	in order to avoid overflowing the recv buffer (too much garbage data can collect). 
+//
+//	Updates to Vicom integration
+//  =======
+//	>  Due to popular request, Vicom integration is being modified to be optional, not a requirement for functionality. 
+//  >  An adoption of a protocol for common requests for data to be sent over from different servers will be incorporated, removing the single-client
+//     specification. 
+//
+//
 ///////////////////////////////////////////////////////////////////////////////
  
 #include <winsock2.h>
@@ -52,8 +60,12 @@ using namespace crpi_robot;
 
 struct addrinfo *result = NULL,	*ptr = NULL, hints;
 struct addrinfo *result_2 = NULL, *ptr_2 = NULL, hints_2;
+
 //Set this bit for debugging with or without CRPI 
 const int SHUTOFF_CRPI = 0; 
+
+//Set this bit for enabling or disabling the functionality of Vicom
+const int DISABLE_VICOM = 0; 
 
 /////////////////////////////////////////////////////////////////////////////////
 //Dummy constructor 
@@ -498,7 +510,7 @@ void Server_CRPI::send_gripper_cmd(float vals) {
 //Export a digital output value out to the robot
 void Server_CRPI::send_DO_cmds(bool ary_in[4]) {
 	Sleep(250);
-	arm->SetRobotDO(0, ary_in[0]);
+	arm->SetRobotDO(0, gripper_ratio);
 	Sleep(250);
 
 	arm->SetRobotDO(9, ary_in[1]);
