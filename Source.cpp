@@ -65,7 +65,7 @@ struct addrinfo *result_2 = NULL, *ptr_2 = NULL, hints_2;
 const int SHUTOFF_CRPI = 0; 
 
 //Set this bit for enabling or disabling the functionality of Vicom
-const int DISABLE_VICOM = 0; 
+const int DISABLE_VICOM = 1; 
 
 /////////////////////////////////////////////////////////////////////////////////
 //Dummy constructor 
@@ -97,15 +97,21 @@ int Server_CRPI::start_CRPI_SRV() {
 	cout << "Starting Connection." << endl;
 
 	// Initialize Winsock
-	iResult_V = WSAStartup(MAKEWORD(2, 2), &vicon_cli);
 	iResult_A = WSAStartup(MAKEWORD(2, 2), &android_cli);
+
+
+	if (DISABLE_VICOM != 1)
+		iResult_V = WSAStartup(MAKEWORD(2, 2), &vicon_cli);
+
+	
 
 	//Check the startup proceedures for the sockets 
 	if (iResult_A != 0) {
 		printf("WSAStartup failed with error: %d\n", iResult_A);
 		return 1;
 	}
-	if (iResult_V != 0) {
+	
+	if (iResult_V != 0 && DISABLE_VICOM != 1) {
 		printf("WSAStartup failed with error: %d\n", iResult_V);
 		return 1;
 	}
@@ -115,14 +121,17 @@ int Server_CRPI::start_CRPI_SRV() {
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
 
-	ZeroMemory(&hints_2, sizeof(hints_2));
-	hints_2.ai_family = AF_INET;
-	hints_2.ai_socktype = SOCK_STREAM;
-	hints_2.ai_protocol = IPPROTO_TCP;
-
+	if (DISABLE_VICOM != 1) {
+		ZeroMemory(&hints_2, sizeof(hints_2));
+		hints_2.ai_family = AF_INET;
+		hints_2.ai_socktype = SOCK_STREAM;
+		hints_2.ai_protocol = IPPROTO_TCP;
+	}
 	// Resolve the server address and port
 	iResult_A = getaddrinfo(adr_IP_android.c_str(), port_android.c_str(), &hints, &result);
-	iResult_V = getaddrinfo(adr_IP_vicon.c_str(), port_vicon.c_str(), &hints_2, &result_2);
+
+	if (DISABLE_VICOM != 1)
+		iResult_V = getaddrinfo(adr_IP_vicon.c_str(), port_vicon.c_str(), &hints_2, &result_2);
 
 	//Check if the addresses are valid ports/IPs 
 	if (iResult_A != 0) {
@@ -130,7 +139,8 @@ int Server_CRPI::start_CRPI_SRV() {
 		WSACleanup();
 		return 2;
 	}
-	if (iResult_V != 0) {
+
+	if (iResult_V != 0 && DISABLE_VICOM != 1) {
 		printf("getaddrinfo failed with error: %d\n", iResult_V);
 		WSACleanup();
 		return 2;
@@ -167,33 +177,35 @@ int Server_CRPI::start_CRPI_SRV() {
 	}
 	freeaddrinfo(result);
 
-	cout << "Starting client Vicon" << endl;
-	/////////////////////////////////////////////////////////////////////////////////
-	for (ptr_2 = result_2; ptr_2 != NULL; ptr_2 = ptr_2->ai_next) {
-		// Create a SOCKET for connecting to server
-		vicon_socket = socket(ptr_2->ai_family, ptr_2->ai_socktype, ptr_2->ai_protocol);
+	if (DISABLE_VICOM != 1) {
+		cout << "Starting client Vicon" << endl;
+		/////////////////////////////////////////////////////////////////////////////////
+		for (ptr_2 = result_2; ptr_2 != NULL; ptr_2 = ptr_2->ai_next) {
+			// Create a SOCKET for connecting to server
+			vicon_socket = socket(ptr_2->ai_family, ptr_2->ai_socktype, ptr_2->ai_protocol);
+			if (vicon_socket == INVALID_SOCKET) {
+				printf("socket failed with error: %ld\n", WSAGetLastError());
+				WSACleanup();
+				return 3;
+			}
+
+			// Connect to server.
+			iResult_V = connect(vicon_socket, ptr_2->ai_addr, (int)ptr_2->ai_addrlen);
+			if (iResult_V == SOCKET_ERROR) {
+				closesocket(vicon_socket);
+				vicon_socket = INVALID_SOCKET;
+				continue;
+			}
+			break;
+		}
+
 		if (vicon_socket == INVALID_SOCKET) {
-			printf("socket failed with error: %ld\n", WSAGetLastError());
+			printf("Unable to connect to server!\n");
 			WSACleanup();
-			return 3;
+			return 4;
 		}
-
-		// Connect to server.
-		iResult_V = connect(vicon_socket, ptr_2->ai_addr, (int)ptr_2->ai_addrlen);
-		if (iResult_V == SOCKET_ERROR) {
-			closesocket(vicon_socket);
-			vicon_socket = INVALID_SOCKET;
-			continue;
-		}
-		break;
+		freeaddrinfo(result_2);
 	}
-
-	if (vicon_socket == INVALID_SOCKET) {
-		printf("Unable to connect to server!\n");
-		WSACleanup();
-		return 4;
-	}
-	freeaddrinfo(result_2);
 	///////////////////////////////////////////////////////////////////////////////////
 
 	cout << "Initialization Done. Starting Client reception..." << endl;
@@ -206,9 +218,11 @@ int Server_CRPI::start_CRPI_SRV() {
 		cout << "Android Bracket" << endl;
 		recieve_message_android();
 		cout << endl; 
-		cout << "Vicon Bracket" << endl; 
-		recieve_message_vicon();
-
+		
+		if (DISABLE_VICOM != 1) {
+			cout << "Vicon Bracket" << endl;
+			recieve_message_vicon();
+		}
 
 		//Send a CRPI Message given the correct string
 		if (SHUTOFF_CRPI == 0 && action_TCP_Android.length() > 10 && action_TCP_Vicon.length() > 2) {
@@ -220,7 +234,7 @@ int Server_CRPI::start_CRPI_SRV() {
 					robot_id = manual_robot_id;
 				}
 			}
-			else if (change_robots == 1) {
+			else if (change_robots == 1 && DISABLE_VICOM != 1) {
 				action_TCP_Vicon.erase(0, 1);
 				action_TCP_Vicon.erase(1, 1);
 				robot_id = stoi(action_TCP_Vicon);
@@ -252,10 +266,12 @@ int Server_CRPI::start_CRPI_SRV() {
 	} while (activate_shutdown == false);
 	
 	cout << "=======================================================================" << endl;
-	close_client_vicon();
-	cout << "=======================================================================" << endl;
 	close_client_android();
 	cout << "=======================================================================" << endl;
+	if (DISABLE_VICOM != 1) {
+		close_client_vicon();
+		cout << "=======================================================================" << endl;
+	}
 	return 0; 
 }
 
