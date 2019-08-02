@@ -225,7 +225,7 @@ int Server_CRPI::start_CRPI_SRV() {
 		}
 
 		//Send a CRPI Message given the correct string
-		if (SHUTOFF_CRPI == 0 && action_TCP_Android.length() > 10 && action_TCP_Vicon.length() > 2) {
+		if (SHUTOFF_CRPI == 0 && action_TCP_Android.length() > 10) {
 			pose_msg = string_converter(action_TCP_Android); //Interpret a robot_pose 
 
 			//Selection of the robot based on user option (Big change robot button on UI) 
@@ -239,9 +239,11 @@ int Server_CRPI::start_CRPI_SRV() {
 				action_TCP_Vicon.erase(1, 1);
 				robot_id = stoi(action_TCP_Vicon);
 			}
+			//else {
+			//	robot_id = 0; 
+			//}
 			//robot_id states the robot ID that will be used to swap between Vicom and Override. 
-			//cout << robot_id << endl;
-
+			cout << robot_id << endl;
 			if (old_robot_id != robot_id && robot_id != 0) { //Changer for robot IDs in Unity
 				act_changer_unity(robot_id);
 				start_CRPI_encoding();
