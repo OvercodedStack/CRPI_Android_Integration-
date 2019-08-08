@@ -239,9 +239,7 @@ int Server_CRPI::start_CRPI_SRV() {
 				action_TCP_Vicon.erase(1, 1);
 				robot_id = stoi(action_TCP_Vicon);
 			}
-			//else {
-			//	robot_id = 0; 
-			//}
+
 			//robot_id states the robot ID that will be used to swap between Vicom and Override. 
 			cout << robot_id << endl;
 			if (old_robot_id != robot_id && robot_id != 0) { //Changer for robot IDs in Unity
@@ -316,7 +314,7 @@ void Server_CRPI::recieve_message_android() {
 
 void Server_CRPI::recieve_message_vicon() {
 	//Highly sensitive stuff
-	char recvbuf[DEFAULT_BUFLEN];
+	char recvbuf[DEFAULT_BUFLEN];//Buffer
 	action_TCP_Vicon = "";
 	iResult_V = recv(vicon_socket, recvbuf, 256, 0);
 
