@@ -85,9 +85,10 @@ int Server_CRPI::start_CRPI_SRV() {
 	//Welcome to the Unity 
 	cout << "=======================================================================" << endl;
 	cout << "Welcome to the Unity -> CRPI Controller with Vicom support" << endl;
-	cout << "The program will run automatically when both the vicom and target unity" << endl;
-	cout << "source programs are running their TCP servers. This client will attempt" << endl;
-	cout << "to connect to them and send signals to CRPI." << endl;
+	cout << "The program will run automatically when the Unity app is in the local " << endl;
+	cout << "network. Optionally the Vicon TCP server can be active and be " << endl;
+	cout << "transmitting and sync to send signals to CRPI." << endl;
+	cout << "To enable the Vicon support, set DISABLE_VICOM flag to 0" << endl;
 	cout << "=======================================================================" << endl;
 
 	//Setup proceedures	
