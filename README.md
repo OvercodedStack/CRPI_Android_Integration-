@@ -6,12 +6,12 @@ This is the man-in-the-middle framework that is utilized for integrating the inc
 ### Installation 
 Download the repository and drag and drop into a current installation of [CRPI](https://github.com/usnistgov/CRPI) in a folder called C:/CRPI/Applications/ (Differs from where you may have installed it.) Upon opening the visual studio solution, press “Start Without Debugging”.
 
-### Useage 
+### Usage 
 Upon initialization, the program will attempt to connect to the TCP socket for the Vicom and the Android Apps, once connection is achieved, the script will continue running until one of the servers closes, upon which the client may close at the same time. If desired, the application's settings can be tweaked to debug or change some functionality.
 
 ### Parameters
 
-- **SHUTOFF_CRPI**: This disables the CRPI translation functionality and only enables the interpretation of recieved messages from the Android app.
+- **SHUTOFF_CRPI**: This disables the CRPI translation functionality and only enables the interpretation of received messages from the Android app.
 
 - **DISABLE_VICOM**: This disables the functionality of using the secondary system, [the motion capture system add-on](https://github.com/OvercodedStack/MOTION_CAPTURE_UNITY-Summer-of-2019-NIST/tree/master), with this system. 
 
