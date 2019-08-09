@@ -1,8 +1,8 @@
 # Collaborative Robotics Programming Interface TCP client middle-ware framework for MACI integration
-This is the man-in-the-middle framework that is utilized for integrating the incoming data from the Vicon Android interpreter and the Android Unity App. This framework takes in commands sent thorough the app and translates them into CRPI-compatible commands. This is dependent on the type of 
+This is the man-in-the-middle framework that is utilized for integrating the incoming data from the Vicon Android interpreter and the Android Unity App. This framework takes in commands sent thorough the app and translates them into CRPI-compatible commands. This is dependent on the type of command-joint values that are being sent from a user to the target robot. No two joint-value lists can be the same for different robots as their structure parameters are different and CRPI may not support that type of robot as well. 
 
 
-###Installation 
+### Installation 
 Download the repository and drag and drop into a current installation of [CRPI](https://github.com/usnistgov/CRPI) in a folder called C:/CRPI/Applications/ (Differs from where you may have installed it.) Upon opening the visual studio solution, press “Start Without Debugging”.
 
 ### Useage 
